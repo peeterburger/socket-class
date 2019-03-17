@@ -6,38 +6,61 @@
 #include <stdio.h>
 // To close a socket
 #include <unistd.h>
+// String to Address conversion
+#include <arpa/inet.h>
+// String handling
+#include <string>
 
 class Socket
 {
 private:
   int address_family;
-  __socket_type type;
+  int type;
   int protocol;
   int sockfd;
 
-public:
-  int GetDomain() const { return address_family; }
-  __socket_type GetType() const { return type; }
-  int GetProtocol() const { return protocol; }
-  int GetSockfd() const { return sockfd; }
+  struct sockaddr_in socket_address;
 
-private:
   Socket()
   {
   }
 
 public:
-  Socket(int port) : Socket::Socket(AF_INET, SOCK_STREAM, 0)
+  int GetAddressFamily()
   {
-    Socket::Bind(INADDR_ANY, port);
+    return address_family;
+  }
+  int GetType()
+  {
+    return type;
+  }
+  int GetProtocol()
+  {
+    return protocol;
+  }
+  int GetSockfd()
+  {
+    return sockfd;
+  }
+  uint16_t GetLocalPort()
+  {
+    return socket_address.sin_port;
+  }
+  std::string GetLocalAddress()
+  {
+    // return socket_address.sin_addr;
   }
 
-  Socket(int address_family, __socket_type type, int protocol = 0) : address_family(address_family), type(type), protocol(protocol)
+  Socket(int address_family, int type, int protocol = 0) : address_family(address_family), type(type), protocol(protocol)
   {
     sockfd = socket(address_family, type, protocol);
   }
 
-public:
+  ~Socket()
+  {
+    Socket::Close();
+  }
+
 #pragma region conventional wrapping
 
   int Accept(struct sockaddr *address, socklen_t *address_len)
@@ -112,7 +135,39 @@ public:
 
 #pragma endregion
 
-#pragma region simplified conventional wrapping
+#pragma region simplified wrapping
+
+  int Bind(in_addr_t addr, in_port_t port)
+  {
+    struct sockaddr_in in_addr;
+    in_addr.sin_family = address_family;
+    in_addr.sin_addr.s_addr = addr;
+    in_addr.sin_port = htons(port);
+    return Socket::Bind((const struct sockaddr *)&in_addr, sizeof(in_addr));
+  }
+
+  int Connect(in_addr_t addr, in_port_t port)
+  {
+    struct sockaddr_in in_addr;
+    in_addr.sin_family = address_family;
+    in_addr.sin_addr.s_addr = addr;
+    in_addr.sin_port = htons(port);
+    return Socket::Connect((const struct sockaddr *)&in_addr, sizeof(in_addr));
+  }
+
+  struct sockaddr *GetPeerName()
+  {
+    struct sockaddr *address;
+    socklen_t *address_len;
+
+    // Error on accept
+    if (Socket::GetPeerName(address, address_len) < 0)
+    {
+      return 0;
+    }
+
+    return address;
+  }
 
 #pragma endregion
 
@@ -139,22 +194,14 @@ public:
     return s;
   }
 
-  int Bind(in_addr_t addr, in_port_t port)
+  int Bind(std::string addr, int16_t port = 0)
   {
-    struct sockaddr_in in_addr;
-    in_addr.sin_family = address_family;
-    in_addr.sin_addr.s_addr = addr;
-    in_addr.sin_port = htons(port);
-    return Socket::Bind((struct sockaddr *)&in_addr, sizeof(in_addr));
+    return Socket::Bind(inet_addr(addr.c_str()), port);
   }
 
-  int Connect(in_addr_t addr, in_port_t port)
+  int Connect(std::string addr, int16_t port)
   {
-    struct sockaddr_in in_addr;
-    in_addr.sin_family = address_family;
-    in_addr.sin_addr.s_addr = addr;
-    in_addr.sin_port = htons(port);
-    return Socket::Connect((struct sockaddr *)&in_addr, sizeof(in_addr));
+    return Socket::Connect(inet_addr(addr.c_str()), port);
   }
 
   int Shutdown()
