@@ -11,6 +11,8 @@
 // String handling
 #include <string>
 
+#include "SocketAddress.h"
+
 class Socket
 {
 private:
@@ -123,7 +125,7 @@ public:
     return sendto(sockfd, message, length, flags, dest_addr, dest_len);
   }
 
-  int SetOpt(int level, int option_name, const void *option_value, socklen_t option_len)
+  int SetSockOpt(int level, int option_name, const void *option_value, socklen_t option_len)
   {
     return setsockopt(sockfd, level, option_name, option_value, option_len);
   }
@@ -161,12 +163,31 @@ public:
     socklen_t *address_len;
 
     // Error on accept
-    if (Socket::GetPeerName(address, address_len) < 0)
+    if (Socket::GetPeerName(address, address_len) > -1)
     {
-      return 0;
+      return address;
     }
+    return NULL;
+  }
 
-    return address;
+  void *GetSockOpt(int level, int option_name)
+  {
+    int feedback;
+    void *option_value;
+    socklen_t *option_len;
+
+    if (Socket::GetSockOpt(level, option_name, option_value, option_len) > -1)
+    {
+      return option_value;
+    }
+    return NULL;
+  }
+
+  int SetSockOpt(int level, int option_name)
+  {
+    void *option_value;
+    socklen_t *option_len;
+    return Socket::GetSockOpt(level, option_name, option_value, option_len);
   }
 
 #pragma endregion
@@ -204,9 +225,9 @@ public:
     return Socket::Connect(inet_addr(addr.c_str()), port);
   }
 
-  int Shutdown()
+  SocketAddress GetLocalPeer()
   {
-    return Socket::Shutdown(SHUT_RDWR);
+    return SocketAddress(Socket::GetPeerName());
   }
 
 #pragma endregion
